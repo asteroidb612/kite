@@ -190,6 +190,11 @@ update msg m =
 -- MODEL
 
 
+type MousePath
+    = BrushingPath (List Point2d)
+    | NotBrushingPath
+
+
 type alias Model =
     { love : Bool
     , files : Files GraphFile
@@ -212,6 +217,7 @@ type alias Model =
     , windowSize : { width : Int, height : Int }
     , mousePosition : MousePosition
     , svgMousePosition : Point2d
+    , svgMousePath : MousePath
 
     --
     , altIsDown : Bool
@@ -365,6 +371,7 @@ initialModel maybeSavedFiles =
     , windowSize = { width = 800, height = 600 }
     , mousePosition = { x = 0, y = 0 }
     , svgMousePosition = Point2d.fromCoordinates ( 0, 0 )
+    , svgMousePath = NotBrushingPath
 
     --
     , altIsDown = False
@@ -981,45 +988,58 @@ updateHelper msg m =
                         )
                         |> Point2d.scaleAbout Point2d.origin (1 / m.zoom)
                         |> Point2d.translateBy panAsVector
+
+                newMousePath =
+                    case m.svgMousePath of
+                        BrushingPath l ->
+                            BrushingPath <| newSvgMousePosition :: l
+
+                        NotBrushingPath ->
+                            NotBrushingPath
             in
             { m
                 | svgMousePosition = newSvgMousePosition
                 , mousePosition = newMousePosition
+                , svgMousePath = newMousePath
             }
 
         MouseUp _ ->
-            case m.selectedTool of
+            let
+                newM =
+                    { m | svgMousePath = BrushingPath [] }
+            in
+            case newM.selectedTool of
                 Select (BrushingForSelection { brushStart }) ->
                     let
                         ( newSelectedVertices, newSelectedEdges ) =
-                            if brushStart == m.svgMousePosition then
+                            if brushStart == newM.svgMousePosition then
                                 ( Set.empty, Set.empty )
 
                             else
-                                ( m.selectedVertices, m.selectedEdges )
+                                ( newM.selectedVertices, newM.selectedEdges )
                     in
-                    { m
+                    { newM
                         | selectedTool = Select SelectIdle
                         , selectedVertices = newSelectedVertices
                         , selectedEdges = newSelectedEdges
                     }
 
                 Select (DraggingSelection _) ->
-                    { m
+                    { newM
                         | selectedTool = Select SelectIdle
                     }
                         |> setAlphaTarget 0
-                        |> new (present m) "Moved some vertices"
+                        |> new (present newM) "Moved some vertices"
 
                 Hand (Panning _) ->
-                    { m | selectedTool = Hand HandIdle }
+                    { newM | selectedTool = Hand HandIdle }
 
                 Gravity GravityDragging ->
-                    { m | selectedTool = Gravity GravityIdle }
-                        |> new (withNewGravityCenter m) "Changed vertex gravity center"
+                    { newM | selectedTool = Gravity GravityIdle }
+                        |> new (withNewGravityCenter newM) "Changed vertex gravity center"
 
                 _ ->
-                    m
+                    newM
 
         MouseDownOnTransparentInteractionRect ->
             case m.selectedTool of
@@ -2892,6 +2912,23 @@ leftBarContentForListsOfBagsVerticesAndEdges m =
             , toggleMsg = ToggleTableOfEdges
             , contentItems = [ tableOfEdges ]
             }
+        , m.svgMousePath
+            |> (\path ->
+                    case path of
+                        BrushingPath l ->
+                            l
+
+                        NotBrushingPath ->
+                            []
+               )
+            |> List.map
+                (\point ->
+                    (++)
+                        (String.fromInt <| round <| Point2d.yCoordinate point)
+                        (String.fromInt <| round <| Point2d.xCoordinate point)
+                )
+            |> List.map El.text
+            |> El.column [ El.width El.fill ]
         ]
 
 
