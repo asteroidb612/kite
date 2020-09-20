@@ -1006,7 +1006,7 @@ updateHelper msg m =
         MouseUp _ ->
             let
                 newM =
-                    { m | svgMousePath = BrushingPath [] }
+                    { m | svgMousePath = NotBrushingPath }
             in
             case newM.selectedTool of
                 Select (BrushingForSelection { brushStart }) ->
@@ -1050,12 +1050,16 @@ updateHelper msg m =
                     in
                     { m
                         | selectedTool = Draw (BrushingNewEdgeWithSourceId sourceId)
+                        , svgMousePath = BrushingPath []
                     }
                         |> stopAnimation
                         |> new newGF "Added a vertex"
 
                 Select SelectIdle ->
-                    { m | selectedTool = Select (BrushingForSelection { brushStart = m.svgMousePosition }) }
+                    { m
+                        | selectedTool = Select (BrushingForSelection { brushStart = m.svgMousePosition })
+                        , svgMousePath = BrushingPath []
+                    }
 
                 _ ->
                     m
