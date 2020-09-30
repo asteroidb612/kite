@@ -9,6 +9,7 @@ import Browser.Dom as Dom
 import Browser.Events exposing (Visibility(..))
 import Circle2d
 import Colors
+import CubicSpline2d
 import Dict
 import Direction2d
 import DotLang exposing (Config(..))
@@ -37,6 +38,7 @@ import IntDict exposing (IntDict)
 import Json.Decode as JD exposing (Decoder, Value)
 import Json.Encode as JE
 import LineSegment2d exposing (LineSegment2d)
+import List.Extra as List
 import Point2d exposing (Point2d)
 import Polygon2d
 import Set exposing (Set)
@@ -4553,7 +4555,7 @@ mainSvg m =
         [ maybeGravityLines m.selectedTool gFToShow
         , viewMapScale m.zoom
         , viewHulls gFToShow
-        , maybeBrushedEdge m.selectedTool m.svgMousePosition gFToShow
+        , maybeBrushedEdge m.selectedTool m.svgMousePosition m.svgMousePath gFToShow
         , transparentInteractionRect
         , maybeHighlightsOnSelectedEdges m.selectedEdges gFToShow
         , maybeHighlightOnMouseOveredEdges m.highlightedEdges gFToShow
@@ -4643,21 +4645,74 @@ viewMapScale zoom =
         ]
 
 
-maybeBrushedEdge : Tool -> Point2d -> GraphFile -> Html Msg
-maybeBrushedEdge tool svgMousePosition graphFile =
+maybeBrushedEdge : Tool -> Point2d -> MousePath -> GraphFile -> Html Msg
+maybeBrushedEdge tool svgMousePosition svgMousePath graphFile =
     case tool of
         Draw (BrushingNewEdgeWithSourceId sourceId) ->
             case graphFile |> GF.getVertexProperties sourceId of
                 Just { position } ->
                     let
-                        dEP =
-                            graphFile |> GF.getDefaultEdgeProperties
+                        lineSegment =
+                            LineSegment2d.from position svgMousePosition
+
+                        default =
+                            { startPoint = LineSegment2d.startPoint lineSegment
+                            , startControlPoint = LineSegment2d.startPoint lineSegment
+                            , endControlPoint = LineSegment2d.endPoint lineSegment
+                            , endPoint = LineSegment2d.endPoint lineSegment
+                            }
+
+                        controlPoints =
+                            case svgMousePath of
+                                BrushingPath points ->
+                                    case
+                                        ( List.getAt (List.length points - 1) points
+                                        , List.getAt (List.length points - 2) points
+                                        , List.getAt 0 points
+                                        )
+                                    of
+                                        ( Just first, Just second, Just last ) ->
+                                            { startPoint = first
+                                            , endPoint = last
+                                            , startControlPoint =
+                                                LineSegment2d.from first second
+                                                    |> LineSegment2d.scaleAbout first 2.0
+                                                    |> LineSegment2d.endPoint
+                                            , endControlPoint =
+                                                LineSegment2d.from first last
+                                                    |> LineSegment2d.scaleAbout first 2.0
+                                                    |> LineSegment2d.endPoint
+                                            }
+
+                                        _ ->
+                                            default
+
+                                _ ->
+                                    default
+
+                        brushedCurve =
+                            Geometry.Svg.cubicSpline2d
+                                [ SA.stroke (Colors.toString Colors.red)
+                                , SA.strokeWidth "2"
+                                , SA.strokeDasharray "1 2"
+                                ]
+                                (CubicSpline2d.with controlPoints)
+
+                        debugCircle point =
+                            Geometry.Svg.circle2d
+                                [ SA.fill (Colors.toString Colors.red) ]
+                                (Circle2d.withRadius 4 point)
+
+                        controlPointDebuggingView =
+                            S.g []
+                                [ brushedCurve
+                                , debugCircle controlPoints.startPoint
+                                , debugCircle controlPoints.endPoint
+                                , debugCircle controlPoints.startControlPoint
+                                , debugCircle controlPoints.endControlPoint
+                                ]
                     in
-                    Geometry.Svg.lineSegment2d
-                        [ SA.strokeWidth (String.fromFloat dEP.thickness)
-                        , SA.stroke (Colors.toString dEP.color)
-                        ]
-                        (LineSegment2d.from position svgMousePosition)
+                    controlPointDebuggingView
 
                 Nothing ->
                     emptySvgElement
