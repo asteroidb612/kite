@@ -4672,15 +4672,27 @@ maybeBrushedEdge tool svgMousePosition svgMousePath graphFile =
                                         )
                                     of
                                         ( Just first, Just second, Just last ) ->
+                                            let
+                                                max =
+                                                    points
+                                                        |> List.map (Point2d.distanceFrom first)
+                                                        |> List.maximum
+                                                        |> Maybe.withDefault 0
+
+                                                controlPointRatio =
+                                                    LineSegment2d.length (LineSegment2d.from first second)
+                                                        / LineSegment2d.length (LineSegment2d.from first last)
+                                            in
                                             { startPoint = first
                                             , endPoint = last
                                             , startControlPoint =
                                                 LineSegment2d.from first second
-                                                    |> LineSegment2d.scaleAbout first 2.0
+                                                    |> LineSegment2d.scaleAbout first max
                                                     |> LineSegment2d.endPoint
                                             , endControlPoint =
-                                                LineSegment2d.from first last
-                                                    |> LineSegment2d.scaleAbout first 2.0
+                                                last
+                                                    |> LineSegment2d.from first
+                                                    |> LineSegment2d.scaleAbout first (max * controlPointRatio)
                                                     |> LineSegment2d.endPoint
                                             }
 
