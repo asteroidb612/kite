@@ -4673,26 +4673,35 @@ maybeBrushedEdge tool svgMousePosition svgMousePath graphFile =
                                     of
                                         ( Just first, Just second, Just last ) ->
                                             let
-                                                max =
-                                                    points
-                                                        |> List.map (Point2d.distanceFrom first)
-                                                        |> List.maximum
-                                                        |> Maybe.withDefault 0
+                                                rotationFactor =
+                                                    Maybe.map2
+                                                        Direction2d.angleFrom
+                                                        (LineSegment2d.direction (LineSegment2d.from first last))
+                                                        (LineSegment2d.direction (LineSegment2d.from first second))
+                                                        |> Maybe.map abs
+                                                        |> Maybe.withDefault 1
 
-                                                controlPointRatio =
-                                                    LineSegment2d.length (LineSegment2d.from first second)
-                                                        / LineSegment2d.length (LineSegment2d.from first last)
+                                                normalizeLine line =
+                                                    if LineSegment2d.length line == 0 then
+                                                        line
+
+                                                    else
+                                                        LineSegment2d.scaleAbout
+                                                            (LineSegment2d.startPoint line)
+                                                            (50 / LineSegment2d.length line)
+                                                            line
                                             in
                                             { startPoint = first
                                             , endPoint = last
                                             , startControlPoint =
                                                 LineSegment2d.from first second
-                                                    |> LineSegment2d.scaleAbout first max
+                                                    |> normalizeLine
+                                                    |> LineSegment2d.scaleAbout first rotationFactor
                                                     |> LineSegment2d.endPoint
                                             , endControlPoint =
-                                                last
-                                                    |> LineSegment2d.from first
-                                                    |> LineSegment2d.scaleAbout first (max * controlPointRatio)
+                                                LineSegment2d.from first last
+                                                    |> normalizeLine
+                                                    |> LineSegment2d.scaleAbout first rotationFactor
                                                     |> LineSegment2d.endPoint
                                             }
 
@@ -4704,27 +4713,14 @@ maybeBrushedEdge tool svgMousePosition svgMousePath graphFile =
 
                         brushedCurve =
                             Geometry.Svg.cubicSpline2d
-                                [ SA.stroke (Colors.toString Colors.red)
+                                [ SA.stroke (Colors.toString Colors.selectBlue)
                                 , SA.strokeWidth "2"
                                 , SA.strokeDasharray "1 2"
+                                , SA.fill "none"
                                 ]
                                 (CubicSpline2d.with controlPoints)
-
-                        debugCircle point =
-                            Geometry.Svg.circle2d
-                                [ SA.fill (Colors.toString Colors.red) ]
-                                (Circle2d.withRadius 4 point)
-
-                        controlPointDebuggingView =
-                            S.g []
-                                [ brushedCurve
-                                , debugCircle controlPoints.startPoint
-                                , debugCircle controlPoints.endPoint
-                                , debugCircle controlPoints.startControlPoint
-                                , debugCircle controlPoints.endControlPoint
-                                ]
                     in
-                    controlPointDebuggingView
+                    brushedCurve
 
                 Nothing ->
                     emptySvgElement
