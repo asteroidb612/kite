@@ -1121,7 +1121,10 @@ updateHelper msg m =
         MouseDownOnVertex id ->
             case m.selectedTool of
                 Draw DrawIdle ->
-                    { m | selectedTool = Draw (BrushingNewEdgeWithSourceId id) }
+                    { m
+                        | selectedTool = Draw (BrushingNewEdgeWithSourceId id)
+                        , svgMousePath = BrushingPath []
+                    }
 
                 Select SelectIdle ->
                     if Set.member id m.selectedVertices then
