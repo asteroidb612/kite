@@ -32,7 +32,11 @@ run alpha =
                     Vector2d.length diff
 
                 l =
-                    alpha * strength * (d - distance) / d
+                    if d == 0 then
+                        1
+
+                    else
+                        alpha * strength * (d - distance) / d
 
                 f =
                     diff |> Vector2d.scaleBy l
