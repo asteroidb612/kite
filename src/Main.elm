@@ -4903,6 +4903,45 @@ arrow { lineSegment, color, thickness, headWidth, headLength } =
         ]
 
 
+circleArrow :
+    { lineSegment : LineSegment2d
+    , color : Color
+    , thickness : Float
+    , headWidth : Float
+    , headLength : Float
+    }
+    -> Html Msg
+circleArrow { lineSegment, color, thickness, headWidth, headLength } =
+    let
+        vecFromOriginToEndPoint =
+            LineSegment2d.endPoint lineSegment
+                |> Point2d.coordinates
+                |> Vector2d.fromComponents
+    in
+    S.g []
+        [ Geometry.Svg.circle2d
+            [ SA.fill "none"
+            , SA.stroke (Colors.toString color)
+            , SA.strokeWidth (String.fromFloat thickness)
+            ]
+            (LineSegment2d.endPoint lineSegment
+                |> Point2d.translateBy (Vector2d.fromComponents ( 0, 8 ))
+                |> Circle2d.withRadius 5
+            )
+        , Geometry.Svg.triangle2d [ SA.fill (Colors.toString color) ]
+            (Triangle2d.fromVertices
+                ( Point2d.fromCoordinates ( 0, -headWidth / 2 )
+                , Point2d.fromCoordinates ( 0, headWidth / 2 )
+                , Point2d.fromCoordinates ( headLength, 0 )
+                )
+                |> Triangle2d.rotateAround Point2d.origin 5
+                |> Triangle2d.translateBy vecFromOriginToEndPoint
+                |> Triangle2d.translateIn Direction2d.y (headLength * 1.3)
+                |> Triangle2d.translateIn Direction2d.x (headLength / 3)
+            )
+        ]
+
+
 viewEdges : GraphFile -> Html Msg
 viewEdges graphFile =
     let
@@ -4979,13 +5018,23 @@ viewEdges graphFile =
                         , SE.onMouseOut (MouseOutEdge ( from, to ))
                         ]
                         [ invisibleBackGroundHandle
-                        , arrow
-                            { lineSegment = edgeLine
-                            , color = label.color
-                            , thickness = label.thickness
-                            , headWidth = 3 * label.thickness
-                            , headLength = 3 * label.thickness
-                            }
+                        , if to == from then
+                            circleArrow
+                                { lineSegment = edgeLine
+                                , color = label.color
+                                , thickness = label.thickness
+                                , headWidth = 3 * label.thickness
+                                , headLength = 3 * label.thickness
+                                }
+
+                          else
+                            arrow
+                                { lineSegment = edgeLine
+                                , color = label.color
+                                , thickness = label.thickness
+                                , headWidth = 3 * label.thickness
+                                , headLength = 3 * label.thickness
+                                }
                         , edgeLabel
                         ]
                     )
