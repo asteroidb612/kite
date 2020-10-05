@@ -1199,18 +1199,13 @@ updateHelper msg m =
         MouseUpOnVertex targetId ->
             case m.selectedTool of
                 Draw (BrushingNewEdgeWithSourceId sourceId) ->
-                    if sourceId == targetId then
-                        { m | selectedTool = Draw DrawIdle }
-                            |> reheatForce
-
-                    else
-                        let
-                            newGF =
-                                present m |> GF.addEdge ( sourceId, targetId )
-                        in
-                        { m | selectedTool = Draw DrawIdle }
-                            |> reheatForce
-                            |> new newGF "Added an edge"
+                    let
+                        newGF =
+                            present m |> GF.addEdge ( sourceId, targetId )
+                    in
+                    { m | selectedTool = Draw DrawIdle }
+                        |> reheatForce
+                        |> new newGF "Added an edge"
 
                 _ ->
                     m
