@@ -249,6 +249,7 @@ type alias Model =
     , tableOfEdgesIsOn : Bool
 
     --
+    , showLoopsIsOn : Bool
     , historyIsOn : Bool
     , selectorIsOn : Bool
     , bagsIsOn : Bool
@@ -404,6 +405,7 @@ initialModel maybeSavedFiles =
     , tableOfEdgesIsOn = True
 
     --
+    , showLoopsIsOn = True
     , historyIsOn = True
     , selectorIsOn = True
     , bagsIsOn = True
@@ -531,6 +533,7 @@ type Msg
     | ToggleTableOfVertices
     | ToggleTableOfEdges
       --
+    | ToggleLoops
     | ToggleHistory
     | ToggleSelector
     | ToggleBags
@@ -1675,6 +1678,9 @@ updateHelper msg m =
 
         ToggleHistory ->
             { m | historyIsOn = not m.historyIsOn }
+
+        ToggleLoops ->
+            { m | showLoopsIsOn = not m.showLoopsIsOn }
 
         ToggleSelector ->
             { m | selectorIsOn = not m.selectorIsOn }
@@ -3472,7 +3478,8 @@ rightBar m =
         , El.scrollbarY
         , El.htmlAttribute (HA.style "pointer-events" "auto")
         ]
-        [ history m
+        [ loops m
+        , history m
         , selector m
         , bags m
         , vertexPreferences m
@@ -3771,6 +3778,17 @@ history m =
         , headerItems = []
         , toggleMsg = ToggleHistory
         , contentItems = [ content ]
+        }
+
+
+loops : Model -> Element Msg
+loops m =
+    menu
+        { headerText = "Loops"
+        , isOn = m.showLoopsIsOn
+        , headerItems = []
+        , toggleMsg = ToggleLoops
+        , contentItems = []
         }
 
 
@@ -4559,7 +4577,7 @@ mainSvg m =
         , maybeHighlightOnMouseOveredEdges m.highlightedEdges gFToShow
         , maybeHighlightsOnSelectedVertices m.selectedVertices gFToShow
         , maybeHighlightOnMouseOveredVertices m.highlightedVertices gFToShow
-        , viewEdges gFToShow
+        , viewEdges gFToShow m.showLoopsIsOn
         , viewVertices gFToShow
         , maybeBrushedSelector
         , maybeRectAroundSelectedVertices m.selectedTool m.selectedVertices gFToShow
@@ -4942,8 +4960,8 @@ circleArrow { lineSegment, color, thickness, headWidth, headLength } =
         ]
 
 
-viewEdges : GraphFile -> Html Msg
-viewEdges graphFile =
+viewEdges : GraphFile -> Bool -> Html Msg
+viewEdges graphFile showLoopsIsOn =
     let
         labelDistance =
             10
@@ -5018,23 +5036,27 @@ viewEdges graphFile =
                         , SE.onMouseOut (MouseOutEdge ( from, to ))
                         ]
                         [ invisibleBackGroundHandle
-                        , if to == from then
-                            circleArrow
-                                { lineSegment = edgeLine
-                                , color = label.color
-                                , thickness = label.thickness
-                                , headWidth = 3 * label.thickness
-                                , headLength = 3 * label.thickness
-                                }
+                        , case ( to == from, showLoopsIsOn ) of
+                            ( True, True ) ->
+                                circleArrow
+                                    { lineSegment = edgeLine
+                                    , color = label.color
+                                    , thickness = label.thickness
+                                    , headWidth = 3 * label.thickness
+                                    , headLength = 3 * label.thickness
+                                    }
 
-                          else
-                            arrow
-                                { lineSegment = edgeLine
-                                , color = label.color
-                                , thickness = label.thickness
-                                , headWidth = 3 * label.thickness
-                                , headLength = 3 * label.thickness
-                                }
+                            ( False, _ ) ->
+                                arrow
+                                    { lineSegment = edgeLine
+                                    , color = label.color
+                                    , thickness = label.thickness
+                                    , headWidth = 3 * label.thickness
+                                    , headLength = 3 * label.thickness
+                                    }
+
+                            ( True, False ) ->
+                                emptySvgElement
                         , edgeLabel
                         ]
                     )
